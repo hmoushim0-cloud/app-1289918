@@ -1,5 +1,47 @@
 # مزامنة درايف احترافي مع نسخ احتياطي تلقائي (Drive BackupSync Pro)
 
+## [Sidekick Autonomous Update]
+
+### Overview of Autonomous Enhancements
+Sidekick has upgraded **Drive BackupSync Pro** (`app-1289918`) with an enterprise-grade Google Drive Differential Delta Synchronization Engine, Multipart Chunk Resumption, and External Hardware Storage (USB 3.2 OTG / NVMe PCIe / UASP) S.M.A.R.T. Telemetry Driver.
+
+### Newly Built Modules & Architecture
+1. **Differential Delta Synchronization & Rolling Hash Engine** (`DriveDeltaSyncEngine.kt`):
+   - **Checksum & Block Verification**: Rolling Adler-32 and CRC-32 hash calculation for fast differential file comparison.
+   - **Atomic Reconciliation Planner**: Full reconciliation matrix classifying files into `DOWNLOAD_NEW`, `SKIP_IDENTICAL`, `UPDATE_MODIFIED`, `DELETE_LOCAL` (mirror mode), and `CONFLICT_LOCAL_NEWER` (protects local modifications).
+   - **Filesystem Constraint Guard**: Active guard enforcing the 4GiB single-file limit on FAT32 partitions (`ERROR_FILESYSTEM_SIZE_EXCEEDED`) while seamlessly supporting unlimited chunking on exFAT/ext4.
+   - **Multipart Chunk Partitioning**: Deterministic partitioning of multi-gigabyte transfers into 4MiB resumable byte-range slices (`bytes=start-end`).
+   - **Throughput & ETA Telemetry**: Real-time MB/s bandwidth calculation with estimated time of completion.
+
+2. **External Hardware Storage (OTG / NVMe / UASP) Driver** (`ExternalStorageDriveDriver.kt`):
+   - **Storage Bus & Filesystem Inspection**: Full telemetry support for USB 3.2 Gen 2 (10 Gbps), NVMe PCIe Gen 4 (32 Gbps), UASP SATA SSD (6 Gbps), and Thunderbolt 4 (40 Gbps) across exFAT, ext4, NTFS, and FAT32.
+   - **Capacity Headroom & Safety Reserve**: Evaluates free space headroom against required download payloads with a mandatory 500MiB safety reserve buffer.
+   - **S.M.A.R.T. Health & Thermal Diagnostics**: Monitors drive temperature with a 68 C critical throttle threshold, flash memory wear leveling percentages, power cycles, and media I/O error counts.
+   - **8-Byte Binary Telemetry Protocol**: Encodes and verifies bus state, temperature, wear level, and usage percentage in a compact hardware telemetry frame (`0x53` sync header with XOR checksum).
+
+3. **Hardware Sensor Driver Integration** (`HardwareSensorDriver.kt`):
+   - Real-time StateFlow broadcasting continuous backup sync cycles, throughput (MB/s), ETA, and disk mount telemetry.
+
+4. **Automated Unit Test Suite** (`DriveBackupSyncFeatureTest.kt`):
+   - 7 comprehensive JUnit 4 unit tests covering checksum generation, multipart chunk partitioning, delta reconciliation planning, FAT32 4GB limit guard, throughput calculation, capacity headroom math, and S.M.A.R.T. binary telemetry frames (100% passing).
+
+### How to Run & Verify
+```bash
+# 1. Compile and run unit test suite
+export JAVA_HOME=/usr/lib/jvm/java-1.17.0-openjdk-arm64
+export PATH=$JAVA_HOME/bin:$PATH
+CP="/usr/share/java/junit4-4.13.2.jar:/usr/share/java/hamcrest-2.2.jar:/usr/share/java/kotlin-stdlib.jar"
+
+kotlinc -Xskip-metadata-version-check -cp "$CP" -d /tmp/drive_test_bin \
+  app/src/main/java/sa/factory/app1289918/domain/sync/DriveDeltaSyncEngine.kt \
+  app/src/main/java/sa/factory/app1289918/hardware/storage/ExternalStorageDriveDriver.kt \
+  app/src/test/java/sa/factory/app1289918/DriveBackupSyncFeatureTest.kt
+
+java -cp "/tmp/drive_test_bin:$CP" org.junit.runner.JUnitCore sa.factory.app1289918.DriveBackupSyncFeatureTest
+```
+
+---
+
 ![Platform: Android](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat&logo=android&logoColor=white)
 ![Kotlin 2.1](https://img.shields.io/badge/Language-Kotlin%202.1-7F52FF?style=flat&logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?style=flat&logo=jetpackcompose&logoColor=white)
